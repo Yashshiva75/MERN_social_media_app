@@ -10,7 +10,10 @@ import { IoCalendarOutline } from "react-icons/io5";
 import { FaLink } from "react-icons/fa";
 import { MdEdit } from "react-icons/md";
 import Posts from "../../Components/common/Posts";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import useFollow from "../../Components/Hooks/useFollow";
+import LoadingSpinner from "../../Components/common/LoadingSpinner";
+import toast from "react-hot-toast";
 
 const ProfilePage = () => {
 
@@ -18,14 +21,15 @@ const ProfilePage = () => {
 	const [profileImg, setProfileImg] = useState(null);
 	const [feedType, setFeedType] = useState("posts");
 
+	const queryClient = useQueryClient()
 	const coverImgRef = useRef(null);
 	const profileImgRef = useRef(null);
     const {userName} = useParams()
 	
 	const isLoading = false;
-	const isMyProfile = true;
-
-	const {data:user} = useQuery({queryKey:["authUser"]})
+	const {follow,isPending}=useFollow()
+	
+	
 	
     
 	const {data:profile,refetch} = useQuery({
@@ -41,7 +45,39 @@ const ProfilePage = () => {
 			}
 		}
 	})
-	console.log("user",profile)
+	
+	
+	const {data:user} = useQuery({queryKey:["authUser"]})
+	
+	const isMyProfile = profile?.message?._id === user?.Userdetails?._id;
+
+	
+	const {mutate:profileUpdate,isPending:updating} = useMutation({
+		mutationFn:async ()=>{
+		   try{
+			  const res = await fetch(`/api/user/update/${user.Userdetails._id}`,{
+			   method:"POST",
+			   headers:{"Content-Type":"application/json"},
+			   body:JSON.stringify({
+				   coverImg,profileImg
+			   }) 
+			  })
+			  const data = await res.json()
+			  console.log('object',data)
+			  return data
+		   }catch(error){
+              throw new Error(error.message)
+		   }
+		},onSuccess:(data)=>{
+			toast.success("data.message")
+			queryClient.invalidateQueries({queryKey:["profile"]})
+		}
+		,onError:(data)=>{
+			toast.success("data.error")
+		}
+   })
+
+	
 	useEffect(()=>{
 		refetch()
 	},[userName])
@@ -58,6 +94,19 @@ const ProfilePage = () => {
 		}
 	};
 
+
+
+	const isFollowing = user?.Userdetails.following.includes(profile?.message._id)
+
+   const handleUpdate = ()=>{
+	profileUpdate()
+   }
+    
+
+	const handleFollow = ()=>{
+	follow(profile.message._id)
+
+	}
 	return (
 		<>
 			<div className='flex-[4_4_0]  border-r border-gray-700 min-h-screen '>
@@ -124,17 +173,17 @@ const ProfilePage = () => {
 								{!isMyProfile && (
 									<button
 										className='btn btn-outline rounded-full btn-sm'
-										onClick={() => alert("Followed successfully")}
-									>
-										Follow
+										onClick={() => handleFollow()}
+									>	
+										{isPending ? <LoadingSpinner/> : "Follow"}
 									</button>
 								)}
 								{(coverImg || profileImg) && (
 									<button
 										className='btn btn-primary rounded-full btn-sm text-white px-4 ml-2'
-										onClick={() => alert("Profile updated successfully")}
+										onClick={() =>handleUpdate()}
 									>
-										Update
+										{updating ? <LoadingSpinner/> : "Update"}
 									</button>
 								)}
 							</div>

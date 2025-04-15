@@ -5,6 +5,7 @@ const useFollow = ()=>{
     const queryClient = useQueryClient()
 
     const {mutate:follow,isPending} = useMutation({
+        mutationKey:["followUnfollow"],
         mutationFn:async(userId)=>{
             try{
                 const res = await fetch(`/api/user/follow/${userId}`,{
@@ -15,20 +16,22 @@ const useFollow = ()=>{
             if(!res.ok){
                 throw new error(data.message)
             }
+            
             return data
         }catch(error){
             throw new Error(error.message)
         }
         },
-        onSuccess:()=>{
+        onSuccess:(data)=>{
             queryClient.invalidateQueries({queryKey:"suggestedUser"})
             queryClient.invalidateQueries({queryKey:"authUser"})
-            toast.success("You followed this")
+            toast.success(`${data.message}`)
         },
         onError:()=>{
             toast.error("error in following")
         }
     })
+    
     return {follow,isPending}
 }
 

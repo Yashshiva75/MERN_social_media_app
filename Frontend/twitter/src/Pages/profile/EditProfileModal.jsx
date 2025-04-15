@@ -1,6 +1,10 @@
 import { useState } from "react";
-
+import {useMutation, useMutationState, useQuery, useQueryClient} from "@tanstack/react-query"
+import LoadingSpinner from "../../Components/common/LoadingSpinner";
+import toast from "react-hot-toast";
 const EditProfileModal = () => {
+	const queryClient = useQueryClient()
+
 	const [formData, setFormData] = useState({
 		fullName: "",
 		username: "",
@@ -11,9 +15,50 @@ const EditProfileModal = () => {
 		currentPassword: "",
 	});
 
+	const {data:user} = useQuery({queryKey:["authUser"]})
+
+	const { mutate: update, isPending } = useMutation({
+		mutationFn: async () => {
+		  try {
+			const res = await fetch(`/api/user/update/${user.Userdetails._id}`, {
+			  method: "POST",
+			  headers: {
+				"Content-Type": "application/json",
+			  },
+			  body: JSON.stringify({
+				fullName: formData.fullName,
+				userName: formData.username,
+				email: formData.email,
+				bio: formData.bio,
+				link: formData.link,
+				newPassword: formData.newPassword,
+				currentPassword: formData.currentPassword,
+			  }),
+			});
+			const data = await res.json();
+			return data;
+		  } catch (error) {
+			throw new Error(error.message);
+		  }
+		},
+		onSuccess: () => {
+		  toast.success("Data updated");
+		  document.getElementById("edit_profile_modal").close()
+		  queryClient.invalidateQueries(["profile"])
+		  
+		},
+		onError: () => {
+		  toast.error("Error in updating");
+		},
+	  });
 	const handleInputChange = (e) => {
 		setFormData({ ...formData, [e.target.name]: e.target.value });
 	};
+
+	const handleUpdate = ()=>{
+		
+		update()
+	}
 
 	return (
 		<>
@@ -30,7 +75,7 @@ const EditProfileModal = () => {
 						className='flex flex-col gap-4'
 						onSubmit={(e) => {
 							e.preventDefault();
-							alert("Profile updated successfully");
+							handleUpdate()
 						}}
 					>
 						<div className='flex flex-wrap gap-2'>
@@ -94,7 +139,10 @@ const EditProfileModal = () => {
 							name='link'
 							onChange={handleInputChange}
 						/>
-						<button className='btn btn-primary rounded-full btn-sm text-white'>Update</button>
+						<button className='btn btn-primary rounded-full btn-sm text-white' >
+							
+							{isPending ? <LoadingSpinner/> : 'Update'}
+						</button>
 					</form>
 				</div>
 				<form method='dialog' className='modal-backdrop'>

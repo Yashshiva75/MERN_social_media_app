@@ -27,7 +27,7 @@ export const followUnfollow = async (req,res)=>{
      const userToModify =await users.findById(id)
      
      const currUser =await users.findById(req.user._id)
-
+     
      if(id === req.user._id.toString()){
         return res.status(401).json({error:'You can follow - Unfollow yourself'})
      }
@@ -37,7 +37,7 @@ export const followUnfollow = async (req,res)=>{
      }
 
      const isFollowing = currUser.following.includes(id)
-
+     
      if(isFollowing){
         //Unfollow
         await users.findByIdAndUpdate(id,{$pull:{follower:req.user._id}})
@@ -48,7 +48,7 @@ export const followUnfollow = async (req,res)=>{
          to:userToModify
         })
         await newNotification.save()
-        return res.status(200).json({message:"User unfollowed success"})
+        return res.status(200).json({message:"User unfollowed success",following:currUser.following})
      }else{
         await users.findByIdAndUpdate(id,{$push:{follower:req.user._id}})
         await users.findByIdAndUpdate(req.user._id,{$push:{following:id}})
@@ -59,7 +59,7 @@ export const followUnfollow = async (req,res)=>{
          to:userToModify
         });
         await newNotification.save()
-        return res.status(200).json({message:"User followed success"})
+        return res.status(200).json({message:"User followed success",following:currUser.following})
      }
 
      
@@ -95,69 +95,44 @@ export const getSuggestedUser = async (req,res)=>{
    }
 }
 
-export const updateUserProfile = async (req,res)=>{
-   const {fullName,userName,email,currentpassword,newpassword,bio,link} = 
-   req.body
-   let {profileimg,coverimg} = req.body
-
-   const userId = req.user._id
-
-   try{
-
-    let user = await users.findById(userId)
-
-    if(!user){
-      return res.status(401).json({error:'User not found'})
-    }
-
-    if((!newpassword && currentpassword) || (newpassword && !currentpassword)){
-      return res.status(401).json({error:'Both Passwords are must'})
-    }
-
-    if(newpassword && currentpassword){
-      const verify = await bcrypt.compare(currentpassword,user.password)
-       if(!verify){
-         return res.status(400).json({error:'old password not matched'})
-       }
-       if(newpassword.length > 6){
-         return res.status(400).json({error:'Password must be atlease 6 char long'})
-       }
-       const gensalt = await bcrypt.genSalt(10)
-       user.password = await bcrypt.hash(newpassword,gensalt)
-      }
-
-      if(profileimg){
-        if(user.profileimg){
-           await cloudinary.uploader.destroy(user.profileimg.split('/').pop().split(".")[0])
-        }
-        const uploadedImg = await cloudinary.uploader.upload(profileimg)
-        profileimg = uploadedImg.secure_url
-        
-      }
-      if(coverimg){
-        if(user.coverimg){
-           await cloudinary.uploader.destroy(user.coverimg.split('/').pop().split(".")[0])
-        }
-        const uploadedImg = await cloudinary.uploader.upload(coverimg)
-        coverimg = uploadedImg.secure_url
-        
-      }
+export const updateUserProfile = async (req, res) => {
+   
+   const { fullName, userName, email, currentpassword, newpassword, bio, link, profileImg, coverImg } = req.body;
+   const userId = req.user._id;
+    coverImg ? console.log('true') : console.log('false')
+   try {
+      let user = await users.findById(userId);
       
-      user.fullName = fullName || user.fullName,
-      user.email = email || user.email,
-      user.userName = userName || user.userName,
-      user.bio = bio || user.bio,
-      user.link = link || user.link,
-      user.profileimg = profileimg || user.profileimg,
-      user.coverimg = profileimg || user.coverimg
+      if (!user) {
+         return res.status(404).json({ error: 'User not found' });
+      }
 
-      user = await user.save()
-      user.password = null
+      if ((newpassword && !currentpassword) || (!newpassword && currentpassword)) {
+         return res.status(400).json({ error: 'Both current and new password are required' });
+      }
 
-      return res.status(200).json({message:"Profile updated successfully"})
-   }catch(error){
-      console.log('err',error)
-      return res.status(500).json({message:"Error in update"})
+      if (newpassword && currentpassword) {
+         const verify = await bcrypt.compare(currentpassword, user.password);
+         if (!verify) {
+            return res.status(400).json({ error: 'Old password not matched' });
+         }
+         user.password = await bcrypt.hash(newpassword, 10);
+      }
 
+      if (profileImg) user.profileimg = profileImg;
+      if (coverImg) user.coverimg = coverImg;
+      if (bio) user.bio = bio;
+      if (link) user.link = link;
+      if (fullName) user.fullName = fullName;
+      if (userName) user.userName = userName;
+      if (email) user.email = email;
+
+      await user.save();
+
+      return res.status(200).json({ message: "Profile updated successfully", user });
+
+   } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: "Server error" });
    }
-}
+};

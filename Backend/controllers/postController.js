@@ -143,8 +143,7 @@ export const getLikedPOsts = async (req,res)=>{
 }
 
 export const getFollowingPosts = async(req,res)=>{
-    
-    
+
     try{
         const userId = req.user._id
         const user = await users.findById(userId)
